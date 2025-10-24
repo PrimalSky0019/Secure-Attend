@@ -2,7 +2,7 @@ import base64
 import io
 import json
 import os
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory
 from flask_cors import CORS
 from deepface import DeepFace
 from PIL import Image
@@ -11,7 +11,10 @@ import re
 from datetime import datetime
 import jwt
 
-app = Flask(__name__)
+app = Flask(__name__, 
+    template_folder='templates',    # Add template folder
+    static_folder='static'         # Add static folder
+)
 CORS(app)  # Allow all origins for a hackathon
 
 # JWT Configuration
@@ -164,6 +167,14 @@ def login():
 
 @app.route('/attendance')
 def attendance_page():
+    return render_template('attendance.html')
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
+
+@app.route('/index.html')
+def serve_index():
     return render_template('attendance.html')
 
 @app.route('/api/login', methods=['POST'])
