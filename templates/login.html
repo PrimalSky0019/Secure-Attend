@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Secure-Attend</title>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="login-container">
+    <div class="login-form glass fade-in">
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-white mb-2">Welcome to Secure-Attend</h2>
+            <p class="text-gray-400">Sign in to access attendance system</p>
+        </div>
+
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
+                <input type="email" id="email" name="email" required 
+                    class="form-input" placeholder="your@email.com">
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                <input type="password" id="password" name="password" required 
+                    class="form-input" placeholder="••••••••">
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <input type="checkbox" id="remember" name="remember" 
+                        class="h-4 w-4 bg-gray-700 border-gray-600 rounded text-indigo-600 focus:ring-indigo-500">
+                    <label for="remember" class="ml-2 text-sm text-gray-300">Remember me</label>
+                </div>
+
+                <a href="#" class="text-sm text-indigo-400 hover:text-indigo-300">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="w-full btn-primary">
+                <span id="loginText">Sign In</span>
+                <div id="loginSpinner" class="spinner ml-2 hidden"></div>
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-sm text-gray-400">
+            Contact your administrator for account access
+        </div>
+    </div>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginText = document.getElementById('loginText');
+            const loginSpinner = document.getElementById('loginSpinner');
+
+            // Show loading state
+            loginText.classList.add('hidden');
+            loginSpinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showNotification('Login successful! Redirecting...', 'success');
+                    // Store the token
+                    localStorage.setItem('auth_token', data.token);
+                    // Redirect based on role
+                    setTimeout(() => {
+                        window.location.href = data.role === 'faculty' ? '/faculty' : '/attendance';
+                    }, 1000);
+                } else {
+                    showNotification(data.message || 'Login failed', 'error');
+                }
+            } catch (err) {
+                showNotification('Could not connect to server', 'error');
+            } finally {
+                loginText.classList.remove('hidden');
+                loginSpinner.classList.add('hidden');
+            }
+        });
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.remove('hidden');
+
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -2,16 +2,29 @@ import base64
 import io
 import json
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from deepface import DeepFace
 from PIL import Image
 import numpy as np
 import re
 from datetime import datetime
+import jwt
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins for a hackathon
+
+# JWT Configuration
+JWT_SECRET = 'your-secret-key'  # Change this in production
+
+# Mock user database (replace with real database in production)
+users = {
+    'faculty@example.com': {
+        'password': 'faculty123',
+        'role': 'faculty',
+        'name': 'Faculty User'
+    }
+}
 
 # --- Database Files ---
 DB_FILE = 'database.json'
@@ -143,7 +156,39 @@ def base64_to_cv_image(base64_string):
 
 @app.route('/')
 def home():
-    return f"Secure-Attend Backend is running with {RECOGNITION_MODEL}!"
+    return redirect(url_for('login'))
+
+@app.route('/login')
+def login():
+    return render_template('login.html')
+
+@app.route('/attendance')
+def attendance_page():
+    return render_template('attendance.html')
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+
+    if email in users and users[email]['password'] == password:
+        # Generate JWT token
+        token = jwt.encode({
+            'email': email,
+            'role': users[email]['role']
+        }, JWT_SECRET, algorithm='HS256')
+        
+        return jsonify({
+            'status': 'success',
+            'token': token,
+            'role': users[email]['role']
+        })
+    
+    return jsonify({
+        'status': 'error',
+        'message': 'Invalid credentials'
+    }), 401
 
 @app.route('/register', methods=['POST'])
 def register():

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System - Secure-Attend</title>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-gray-900 min-h-screen">
+    <!-- Top Navigation -->
+    <nav class="glass fixed w-full z-50 border-b border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-8 w-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <div class="text-xl font-semibold text-white">Secure-Attend</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-gray-300" id="courseInfo"></div>
+                    <div class="text-gray-400" id="currentTime"></div>
+                    <button id="logout" class="text-gray-300 hover:text-white">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="pt-20 pb-10 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <!-- Course Selection -->
+            <div class="mb-8 glass p-4 rounded-lg">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Course Code</label>
+                        <select id="courseCode" class="form-input">
+                            <option value="">Select Course</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Venue</label>
+                        <select id="venue" class="form-input">
+                            <option value="">Select Venue</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Faculty</label>
+                        <input type="text" id="faculty" class="form-input" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Session</label>
+                        <select id="session" class="form-input">
+                            <option value="lecture">Lecture</option>
+                            <option value="lab">Lab</option>
+                            <option value="tutorial">Tutorial</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camera Feed & Recognition -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Camera Column -->
+                <div class="glass rounded-lg p-6">
+                    <div class="relative">
+                        <div id="camera-container" class="relative overflow-hidden rounded-lg bg-black">
+                            <video id="video" autoplay playsinline class="w-full h-auto"></video>
+                            <div id="face-overlay"></div>
+                        </div>
+                        <div class="absolute top-4 right-4 flex space-x-2">
+                            <button id="toggleCamera" class="p-2 rounded-full bg-gray-800/80 text-white hover:bg-gray-700/80">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                            </button>
+                            <button id="capturePhoto" class="p-2 rounded-full bg-indigo-600/80 text-white hover:bg-indigo-500/80">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div id="recognition-status" class="text-center text-lg font-medium text-gray-300"></div>
+                    </div>
+                </div>
+
+                <!-- Attendance List -->
+                <div class="glass rounded-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-white">Today's Attendance</h3>
+                        <button id="exportBtn" class="btn-export">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Export
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Reg. No</th>
+                                    <th>Name</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Student Modal -->
+    <div id="addStudentModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+            <div class="glass rounded-lg p-6 w-full max-w-md">
+                <h3 class="text-xl font-medium text-white mb-4">Add New Student</h3>
+                <form id="addStudentForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Registration Number</label>
+                        <input type="text" id="regNo" required class="form-input">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
+                        <input type="text" id="studentName" required class="form-input">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Course</label>
+                        <input type="text" id="studentCourse" required class="form-input">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" id="cancelAdd" class="px-4 py-2 text-gray-300 hover:text-white">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn-primary">
+                            Add Student
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <script src="/static/js/attendance.js"></script>
+</body>
+</html>
