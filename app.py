@@ -8,21 +8,19 @@ from deepface import DeepFace
 from PIL import Image
 import numpy as np
 import re
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins for a hackathon
 
-# --- Database File ---
+# --- Database Files ---
 DB_FILE = 'database.json'
+ATTENDANCE_FILE = 'attendance.json'
 
 # --- MODEL CONFIGURATION ---
-# Using VGG-Face model as requested
-# VGG-Face is a well-established model with:
-# - Good accuracy
-# - Stable performance
-# - Broad compatibility
 RECOGNITION_MODEL = "VGG-Face"
 DETECTOR_BACKEND = "opencv"     # Using OpenCV for detection
+SIMILARITY_THRESHOLD = 0.6      # Threshold for face recognition
 
 print(f"--- Using Model: {RECOGNITION_MODEL} ---")
 print(f"--- Using Detector: {DETECTOR_BACKEND} ---")
@@ -35,7 +33,19 @@ def load_database():
         return {}
     try:
         with open(DB_FILE, 'r') as f:
-            # Handle empty file case
+            content = f.read()
+            if not content:
+                return {}
+            return json.loads(content)
+    except json.JSONDecodeError:
+        return {}
+
+def load_attendance():
+    """Loads the attendance records."""
+    if not os.path.exists(ATTENDANCE_FILE):
+        return {}
+    try:
+        with open(ATTENDANCE_FILE, 'r') as f:
             content = f.read()
             if not content:
                 return {}
@@ -47,6 +57,11 @@ def save_database(db):
     """Saves the embeddings database to the JSON file."""
     with open(DB_FILE, 'w') as f:
         json.dump(db, f, indent=2)
+
+def save_attendance(attendance):
+    """Saves the attendance records."""
+    with open(ATTENDANCE_FILE, 'w') as f:
+        json.dump(attendance, f, indent=2)
 
 def base64_to_cv_image(base64_string):
     """Converts a Base64 string to a NumPy array (OpenCV format)."""
@@ -76,10 +91,7 @@ def home():
 
 @app.route('/register', methods=['POST'])
 def register():
-    """
-    Registers a new user.
-    Receives: { "name": "John Doe", "image": "data:image/png;base64,..." }
-    """
+    """Registers a new user."""
     data = request.json
     name = data.get('name')
     image_b64 = data.get('image')
@@ -88,110 +100,109 @@ def register():
         return jsonify({"status": "error", "message": "Name and image are required."}), 400
 
     try:
-        # Convert base64 to image first
         img = base64_to_cv_image(image_b64)
+        faces = find_faces(img)
         
-        # Generate the embedding using the models from your research
-        embedding_obj = DeepFace.represent(
-            img_path = img,
-            model_name = RECOGNITION_MODEL,
-            detector_backend = DETECTOR_BACKEND,
-            enforce_detection = True,
-            align = True
-        )
-        
-        # The embedding is in the response
-        embedding = embedding_obj[0]["embedding"]
+        if not faces:
+            return jsonify({"status": "error", "message": "No face detected. Please try again."}), 400
+            
+        if len(faces) > 1:
+            return jsonify({"status": "error", "message": "Multiple faces detected. Please ensure only one person is in frame."}), 400
+
+        embeddings = get_face_embeddings(img, faces)
+        if not embeddings:
+            return jsonify({"status": "error", "message": "Could not process the face. Please try again."}), 400
 
         # Load DB, add new user, save DB
         db = load_database()
         if name in db:
             return jsonify({"status": "error", "message": "User already registered."}), 400
         
-        db[name] = embedding
+        db[name] = embeddings[0]  # Store the first (and only) embedding
         save_database(db)
         
         print(f"Registered new user: {name} using {RECOGNITION_MODEL}")
         return jsonify({"status": "success", "message": f"User {name} registered successfully."})
 
-    except ValueError as e:
-        print(f"Registration error: {e}")
-        # This error is often "Face could not be detected"
-        return jsonify({"status": "error", "message": "Could not detect a face. Please try again."}), 400
     except Exception as e:
-        print(f"Internal server error: {e}")
-        return jsonify({"status": "error", "message": f"An internal error occurred: {e}"}), 500
+        print(f"Registration error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/check-in', methods=['POST'])
 def check_in():
-    """
-    Checks in a user.
-    Receives: { "image": "data:image/png;base64,..." }
-    """
+    """Checks in multiple users simultaneously."""
     image_b64 = request.json.get('image')
     if not image_b64:
         return jsonify({"status": "error", "message": "Image is required."}), 400
 
     try:
-        # 1. Convert base64 to image first
         img = base64_to_cv_image(image_b64)
+        faces = find_faces(img)
         
-        # Generate embedding for the live image
-        live_embedding_obj = DeepFace.represent(
-            img_path = img,
-            model_name = RECOGNITION_MODEL,
-            detector_backend = DETECTOR_BACKEND,
-            enforce_detection = True,
-            align = True
-        )
-        live_embedding = live_embedding_obj[0]["embedding"]
+        if not faces:
+            return jsonify({"status": "error", "message": "No faces detected. Please try again."}), 400
 
-        # 2. Load the database
+        # Get embeddings for all detected faces
+        embeddings = get_face_embeddings(img, faces)
+        if not embeddings:
+            return jsonify({"status": "error", "message": "Could not process faces. Please try again."}), 400
+
+        # Load database
         db = load_database()
         if not db:
             return jsonify({"status": "error", "message": "No users registered yet."}), 400
 
-        # 3. Find the best match
-        best_match_name = "Unknown"
-        match_found = False
+        # Match each face
+        recognized_users = []
+        attendance = load_attendance()
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_time = datetime.now().strftime("%H:%M:%S")
 
-        # We must manually check each one.
-        for name, saved_embedding in db.items():
-            if not isinstance(saved_embedding, list):
-                print(f"Skipping invalid embedding for user {name}")
-                continue
+        for embedding in embeddings:
+            name, confidence = match_face(embedding, db)
+            if name:
+                recognized_users.append({"name": name, "confidence": float(confidence)})
                 
-            # Calculate cosine similarity between embeddings
-            from scipy.spatial.distance import cosine
-            similarity = 1 - cosine(live_embedding, saved_embedding)
-            
-            # If similarity is high enough (threshold can be adjusted)
-            if similarity > 0.6:  # 0.6 is a good threshold for VGG-Face
-                best_match_name = name
-                match_found = True
-                break # Found a match
+                # Record attendance
+                if current_date not in attendance:
+                    attendance[current_date] = {}
+                if name not in attendance[current_date]:
+                    attendance[current_date][name] = []
+                attendance[current_date][name].append(current_time)
 
-        if match_found:
-            print(f"Check-in successful: {best_match_name}")
-            return jsonify({"status": "success", "name": best_match_name})
+        save_attendance(attendance)
+
+        if recognized_users:
+            return jsonify({
+                "status": "success",
+                "recognized_users": recognized_users,
+                "total_faces": len(faces)
+            })
         else:
-            print("Check-in failed: User not recognized.")
-            return jsonify({"status": "error", "message": "User not recognized."})
+            return jsonify({
+                "status": "error",
+                "message": "No registered users recognized.",
+                "total_faces": len(faces)
+            })
 
-    except ValueError as e:
-        print(f"Check-in error: {e}")
-        # This error is often "Face could not be detected"
-        return jsonify({"status": "error", "message": "Could not detect a face for check-in."}), 400
     except Exception as e:
-        print(f"Internal server error: {e}")
-        return jsonify({"status": "error", "message": f"An internal error occurred: {e}"}), 500
+        print(f"Check-in error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/attendance', methods=['GET'])
+def get_attendance():
+    """Gets attendance records."""
+    date = request.args.get('date', datetime.now().strftime("%Y-%m-%d"))
+    attendance = load_attendance()
+    return jsonify(attendance.get(date, {}))
 
 if __name__ == '__main__':
-    # Create the database file if it doesn't exist
+    # Create necessary files
     if not os.path.exists(DB_FILE):
         save_database({})
+    if not os.path.exists(ATTENDANCE_FILE):
+        save_attendance({})
     
     print("Starting server...")
-    
     app.run(host='0.0.0.0', port=5000, debug=True)
 

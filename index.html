@@ -3,21 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure-Attend Prototype</title>
-    <!-- 1. Load Tailwind CSS -->
+    <title>Secure-Attend | Smart Attendance System</title>
+    
+    <!-- Tailwind and Inter font -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    
+    <!-- Hero Icons for better UI -->
+    <script src="https://unpkg.com/@heroicons/v2/24/solid/esm/index.js" type="module"></script>
+    
     <style>
-        /* Simple loading spinner */
+        /* Use Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Gradient animation */
+        .gradient-bg {
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+        
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Loading spinner */
         .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #4f46e5;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-left-color: #ffffff;
             border-radius: 50%;
             width: 24px;
             height: 24px;
             animation: spin 1s linear infinite;
         }
+        
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+        
+        /* Pulsing effect for video border */
+        .pulse-border {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+        }
+        
+        /* Face guide animation */
+        .face-guide {
+            animation: guide-pulse 2s infinite;
+        }
+        
+        @keyframes guide-pulse {
+            0% { border-color: rgba(255, 255, 255, 0.3); }
+            50% { border-color: rgba(255, 255, 255, 0.8); }
+            100% { border-color: rgba(255, 255, 255, 0.3); }
         }
         
         /* Face positioning guide */
@@ -47,13 +94,45 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen">
+<body class="bg-gray-900 text-white antialiased">
+    <!-- Top Navigation -->
+    <nav class="bg-gray-800/50 backdrop-blur-md fixed w-full z-50 border-b border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <!-- You can add a logo here -->
+                        <svg class="h-8 w-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <div class="text-xl font-semibold">Secure-Attend</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm px-3 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                        Server Connected
+                    </div>
+                    <div id="time" class="text-gray-400 text-sm"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-    <div class="container mx-auto p-4 max-w-6xl">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-indigo-400">Secure-Attend</h1>
-            <p class="text-lg text-gray-400">Hackathon Prototype: Privacy-First, Spoof-Proof Attendance</p>
-        </header>
+    <!-- Main Content -->
+    <div class="min-h-screen pt-20 pb-10">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header -->
+            <header class="text-center mb-12">
+                <h1 class="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500 mb-3">
+                    Smart Attendance System
+                </h1>
+                <p class="text-lg text-gray-400 max-w-2xl mx-auto">
+                    Privacy-first, spoof-proof attendance using state-of-the-art facial recognition.
+                    Your face is converted into a secure mathematical signature – we never store actual photos.
+                </p>
+            </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 
