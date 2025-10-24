@@ -16,12 +16,13 @@ CORS(app)  # Allow all origins for a hackathon
 DB_FILE = 'database.json'
 
 # --- MODEL CONFIGURATION ---
-# Change this to "VGG-Face" to use the other model from your research!
-# Your paper's findings:
-# - "VGG-Face" = Best Accuracy (99.114%)
-# - "OpenFace" = Fastest Speed (104.98 ms)
-RECOGNITION_MODEL = "VGG-Face"  # Changed to VGG-Face as it's one of the supported models
-DETECTOR_BACKEND = "opencv"     # Changed to opencv as it's more stable
+# Using VGG-Face model as requested
+# VGG-Face is a well-established model with:
+# - Good accuracy
+# - Stable performance
+# - Broad compatibility
+RECOGNITION_MODEL = "VGG-Face"
+DETECTOR_BACKEND = "opencv"     # Using OpenCV for detection
 
 print(f"--- Using Model: {RECOGNITION_MODEL} ---")
 print(f"--- Using Detector: {DETECTOR_BACKEND} ---")
@@ -165,7 +166,7 @@ def check_in():
             similarity = 1 - cosine(live_embedding, saved_embedding)
             
             # If similarity is high enough (threshold can be adjusted)
-            if similarity > 0.7:  # 0.7 is a good threshold for VGG-Face
+            if similarity > 0.6:  # 0.6 is a good threshold for VGG-Face
                 best_match_name = name
                 match_found = True
                 break # Found a match
@@ -190,10 +191,7 @@ if __name__ == '__main__':
     if not os.path.exists(DB_FILE):
         save_database({})
     
-    # Pre-load the models so the first request isn't slow
-    print("Pre-loading AI models...")
-    DeepFace.build_model(RECOGNITION_MODEL)
-    print("Models loaded. Starting server...")
+    print("Starting server...")
     
     app.run(host='0.0.0.0', port=5000, debug=True)
 
