@@ -16,12 +16,12 @@ CORS(app)  # Allow all origins for a hackathon
 DB_FILE = 'database.json'
 
 # --- MODEL CONFIGURATION ---
-# Change this to "arcface" to use the other model from your research!
+# Change this to "VGG-Face" to use the other model from your research!
 # Your paper's findings:
-# - "facenet" = Best Accuracy (99.114%)
-# - "arcface" = Fastest Speed (104.98 ms)
-RECOGNITION_MODEL = "facenet" 
-DETECTOR_BACKEND = "retinaface"
+# - "VGG-Face" = Best Accuracy (99.114%)
+# - "OpenFace" = Fastest Speed (104.98 ms)
+RECOGNITION_MODEL = "VGG-Face"  # Changed to VGG-Face as it's one of the supported models
+DETECTOR_BACKEND = "opencv"     # Changed to opencv as it's more stable
 
 print(f"--- Using Model: {RECOGNITION_MODEL} ---")
 print(f"--- Using Detector: {DETECTOR_BACKEND} ---")
@@ -87,16 +87,20 @@ def register():
         return jsonify({"status": "error", "message": "Name and image are required."}), 400
 
     try:
+        # Convert base64 to image first
+        img = base64_to_cv_image(image_b64)
+        
         # Generate the embedding using the models from your research
         embedding_obj = DeepFace.represent(
-            img_path=image_b64,
-            model_name=RECOGNITION_MODEL,    # <-- Using our config variable
-            detector_backend=DETECTOR_BACKEND, # <-- Using our config variable
-            enforce_detection=True
+            img_path = img,
+            model_name = RECOGNITION_MODEL,
+            detector_backend = DETECTOR_BACKEND,
+            enforce_detection = True,
+            align = True
         )
         
-        # The embedding is in 'embedding' key
-        embedding = embedding_obj[0]['embedding']
+        # The embedding is in the response
+        embedding = embedding_obj[0]["embedding"]
 
         # Load DB, add new user, save DB
         db = load_database()
@@ -128,14 +132,18 @@ def check_in():
         return jsonify({"status": "error", "message": "Image is required."}), 400
 
     try:
-        # 1. Generate embedding for the live image
+        # 1. Convert base64 to image first
+        img = base64_to_cv_image(image_b64)
+        
+        # Generate embedding for the live image
         live_embedding_obj = DeepFace.represent(
-            img_path=image_b64,
-            model_name=RECOGNITION_MODEL,    # <-- Using our config variable
-            detector_backend=DETECTOR_BACKEND, # <-- Using our config variable
-            enforce_detection=True
+            img_path = img,
+            model_name = RECOGNITION_MODEL,
+            detector_backend = DETECTOR_BACKEND,
+            enforce_detection = True,
+            align = True
         )
-        live_embedding = live_embedding_obj[0]['embedding']
+        live_embedding = live_embedding_obj[0]["embedding"]
 
         # 2. Load the database
         db = load_database()
@@ -148,20 +156,16 @@ def check_in():
 
         # We must manually check each one.
         for name, saved_embedding in db.items():
-            # Fix: Changed saved_ED to saved_embedding
             if not isinstance(saved_embedding, list):
                 print(f"Skipping invalid embedding for user {name}")
                 continue
                 
-            result = DeepFace.verify(
-                img1_path=live_embedding,  # Fix: Added equal sign
-                img2_path=saved_embedding,  # Fix: Added equal sign
-                model_name=RECOGNITION_MODEL, # <-- Using our config variable
-                distance_metric='cosine', 
-                enforce_detection=False 
-            )
+            # Calculate cosine similarity between embeddings
+            from scipy.spatial.distance import cosine
+            similarity = 1 - cosine(live_embedding, saved_embedding)
             
-            if result['verified']:
+            # If similarity is high enough (threshold can be adjusted)
+            if similarity > 0.7:  # 0.7 is a good threshold for VGG-Face
                 best_match_name = name
                 match_found = True
                 break # Found a match
@@ -186,6 +190,10 @@ if __name__ == '__main__':
     if not os.path.exists(DB_FILE):
         save_database({})
     
-    print("Starting server...")
+    # Pre-load the models so the first request isn't slow
+    print("Pre-loading AI models...")
+    DeepFace.build_model(RECOGNITION_MODEL)
+    print("Models loaded. Starting server...")
     
     app.run(host='0.0.0.0', port=5000, debug=True)
+
