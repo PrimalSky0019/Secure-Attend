@@ -27,6 +27,62 @@ print(f"--- Using Detector: {DETECTOR_BACKEND} ---")
 
 # --- Helper Functions ---
 
+def find_faces(img):
+    """Detects and extracts all faces from an image."""
+    try:
+        # Use DeepFace's extract_faces function to get all faces
+        faces = DeepFace.extract_faces(
+            img_path=img,
+            detector_backend=DETECTOR_BACKEND,
+            enforce_detection=True,
+            align=True
+        )
+        return faces
+    except Exception as e:
+        print(f"Error detecting faces: {e}")
+        return []
+
+def get_face_embeddings(img, faces):
+    """Gets embeddings for all detected faces."""
+    embeddings = []
+    
+    for face in faces:
+        try:
+            face_img = face['face']
+            # Generate embedding for this face
+            embedding_obj = DeepFace.represent(
+                img_path=face_img,
+                model_name=RECOGNITION_MODEL,
+                detector_backend=DETECTOR_BACKEND,
+                enforce_detection=False,  # Already detected
+                align=False  # Already aligned
+            )
+            embeddings.append(embedding_obj[0]["embedding"])
+        except Exception as e:
+            print(f"Error getting embedding: {e}")
+            continue
+            
+    return embeddings
+
+def match_face(live_embedding, db):
+    """Finds the best match for a face embedding in the database."""
+    best_match = None
+    highest_similarity = 0
+
+    for name, saved_embedding in db.items():
+        if not isinstance(saved_embedding, list):
+            print(f"Skipping invalid embedding for user {name}")
+            continue
+            
+        from scipy.spatial.distance import cosine
+        similarity = 1 - cosine(live_embedding, saved_embedding)
+        
+        if similarity > SIMILARITY_THRESHOLD and similarity > highest_similarity:
+            highest_similarity = similarity
+            best_match = name
+
+    return best_match, highest_similarity
+
 def load_database():
     """Loads the embeddings database from the JSON file."""
     if not os.path.exists(DB_FILE):
