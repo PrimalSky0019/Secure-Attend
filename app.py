@@ -10,6 +10,7 @@ import numpy as np
 import re
 from datetime import datetime
 import jwt
+from auth import auth_required, faculty_required
 
 app = Flask(__name__, 
     template_folder='templates',    # Add template folder
@@ -165,17 +166,32 @@ def home():
 def login():
     return render_template('login.html')
 
+@app.route('/faculty')
+@auth_required
+@faculty_required
+def faculty_dashboard():
+    return render_template('faculty_dashboard.html')
+
+@app.route('/faculty/index')
+@auth_required
+@faculty_required
+def faculty_index():
+    return render_template('index.html')
+
+@app.route('/faculty/index_new')
+@auth_required
+@faculty_required
+def faculty_index_new():
+    return render_template('index_new.html')
+
 @app.route('/attendance')
+@auth_required
 def attendance_page():
     return render_template('attendance.html')
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory('static', filename)
-
-@app.route('/index.html')
-def serve_index():
-    return render_template('attendance.html')
 
 @app.route('/api/login', methods=['POST'])
 def api_login():

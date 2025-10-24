@@ -8,10 +8,12 @@ def login():
     # Check credentials (this should be replaced with a proper database check)
     if email in users and users[email]['password'] == password:
         token = generate_token(email)
+        role = users[email]['role']
         return jsonify({
             'status': 'success',
             'token': token,
-            'role': users[email]['role']
+            'role': role,
+            'redirect': '/faculty' if role == 'faculty' else '/attendance'
         })
     
     return jsonify({

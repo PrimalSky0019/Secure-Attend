@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Dashboard - Secure Attend</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 p-4 text-white">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Secure Attend - Faculty Dashboard</h1>
+            <button id="logoutBtn" class="bg-red-500 px-4 py-2 rounded hover:bg-red-600">Logout</button>
+        </div>
+    </nav>
+
+    <main class="container mx-auto mt-8 p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Courses Section -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4">Your Courses</h2>
+                <div id="coursesList" class="space-y-4">
+                    <!-- Courses will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Attendance Section -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4">Take Attendance</h2>
+                <select id="courseSelect" class="w-full p-2 border rounded mb-4">
+                    <option value="">Select Course</option>
+                </select>
+                <div class="space-y-4">
+                    <button id="startAttendance" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">
+                        Start Taking Attendance
+                    </button>
+                    <button id="exportAttendance" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">
+                        Export Attendance
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Section (Hidden by default) -->
+        <div id="cameraSection" class="mt-8 bg-white p-6 rounded-lg shadow hidden">
+            <h2 class="text-xl font-bold mb-4">Camera Feed</h2>
+            <div class="relative">
+                <video id="video" class="w-full h-auto rounded" autoplay></video>
+                <button id="captureBtn" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">
+                    Capture Attendance
+                </button>
+            </div>
+            <div id="results" class="mt-4">
+                <!-- Results will be shown here -->
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/js/attendance.js"></script>
+    <script>
+        // Check authentication on page load
+        if (!localStorage.getItem('token')) {
+            window.location.href = '/login';
+        }
+
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        });
+
+        // Load courses when page loads
+        fetch('/api/courses', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        })
+        .then(response => response.json())
+        .then(courses => {
+            const coursesList = document.getElementById('coursesList');
+            const courseSelect = document.getElementById('courseSelect');
+            
+            courses.forEach(course => {
+                // Add to courses list
+                coursesList.innerHTML += `
+                    <div class="border p-4 rounded">
+                        <h3 class="font-bold">${course.name}</h3>
+                        <p class="text-gray-600">Code: ${course.code}</p>
+                        <p class="text-gray-600">Venue: ${course.venue}</p>
+                    </div>
+                `;
+
+                // Add to select dropdown
+                courseSelect.innerHTML += `
+                    <option value="${course.code}">${course.name}</option>
+                `;
+            });
+        });
+
+        // Handle attendance capture
+        document.getElementById('startAttendance').addEventListener('click', () => {
+            const cameraSection = document.getElementById('cameraSection');
+            cameraSection.classList.remove('hidden');
+            initializeCamera();
+        });
+
+        // Export attendance
+        document.getElementById('exportAttendance').addEventListener('click', () => {
+            const courseCode = document.getElementById('courseSelect').value;
+            if (!courseCode) {
+                alert('Please select a course');
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            fetch('/api/export-attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    course_code: courseCode,
+                    date: today
+                })
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `attendance_${courseCode}_${today}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            });
+        });
+    </script>
+</body>
+</html>

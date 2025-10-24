@@ -65,7 +65,7 @@
             loginSpinner.classList.remove('hidden');
 
             try {
-                const response = await fetch('/api/login', {
+                const response = await fetch('http://localhost:5000/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
@@ -76,10 +76,11 @@
                 if (response.ok) {
                     showNotification('Login successful! Redirecting...', 'success');
                     // Store the token
-                    localStorage.setItem('auth_token', data.token);
-                    // Redirect based on role
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user_role', data.role);
+                    // Redirect to faculty attendance system for faculty, otherwise to public attendance page
                     setTimeout(() => {
-                        window.location.href = data.role === 'faculty' ? '/faculty' : '/attendance';
+                        window.location.href = data.role === 'faculty' ? '/index' : '/attendance';
                     }, 1000);
                 } else {
                     showNotification(data.message || 'Login failed', 'error');
