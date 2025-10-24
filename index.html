@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure-Attend Prototype</title>
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple loading spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Face positioning guide */
+        .video-container {
+            position: relative;
+        }
+        .face-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .face-guide::after {
+            content: "Position your face here";
+            position: absolute;
+            width: 200px;
+            text-align: center;
+            top: -30px;
+            left: 0;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen">
+
+    <div class="container mx-auto p-4 max-w-6xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-indigo-400">Secure-Attend</h1>
+            <p class="text-lg text-gray-400">Hackathon Prototype: Privacy-First, Spoof-Proof Attendance</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+            <!-- === REGISTRATION PANEL === -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl">
+                <h2 class="text-2xl font-semibold mb-4 text-center text-indigo-300">1. Register New User</h2>
+                <div class="mb-4">
+                    <label for="name" class="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
+                    <input type="text" id="name" class="w-full bg-gray-700 text-white border-gray-600 rounded-md p-2" placeholder="e.g., Jane Doe">
+                </div>
+                
+                <!-- Webcam Feed -->
+                <div class="bg-black rounded-md overflow-hidden mb-4 border-2 border-gray-700 video-container">
+                    <video id="video-register" autoplay playsinline class="w-full h-auto"></video>
+                    <div class="face-guide"></div>
+                </div>
+                
+                <button id="register-button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-all">
+                    <span id="register-text">Register</span>
+                    <div id="register-spinner" class="spinner hidden"></div>
+                </button>
+
+                <p id="register-status" class="text-center mt-3 text-sm h-5"></p>
+            </div>
+
+            <!-- === CHECK-IN PANEL === -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl">
+                <h2 class="text-2xl font-semibold mb-4 text-center text-green-300">2. Check In</h2>
+                
+                <!-- Webcam Feed -->
+                <div class="bg-black rounded-md overflow-hidden mb-4 border-2 border-gray-700 video-container">
+                    <video id="video-checkin" autoplay playsinline class="w-full h-auto"></video>
+                    <div class="face-guide"></div>
+                </div>
+
+                <!-- Liveliness Placeholder -->
+                <div id="liveliness-prompt" class="text-center p-3 bg-yellow-900/50 border border-yellow-700 rounded-md mb-4 hidden">
+                    <p class="font-bold text-yellow-300">Liveliness Check</p>
+                    <p class="text-yellow-400 text-sm">Please blink to verify...</p>
+                </div>
+                
+                <button id="checkin-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-all">
+                    <span id="checkin-text">Check In</span>
+                    <div id="checkin-spinner" class="spinner hidden"></div>
+                </button>
+
+                <p id="checkin-status" class="text-center mt-3 text-sm h-5"></p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Canvas (hidden) for capturing frames -->
+    <canvas id="canvas" class="hidden"></canvas>
+
+    <script>
+        // --- Configuration ---
+        const BACKEND_URL = 'http://127.0.0.1:5000'; // Flask server URL
+
+        // --- DOM Elements ---
+        const videoRegister = document.getElementById('video-register');
+        const videoCheckin = document.getElementById('video-checkin');
+        const canvas = document.getElementById('canvas');
+        const nameInput = document.getElementById('name');
+        
+        const registerButton = document.getElementById('register-button');
+        const registerText = document.getElementById('register-text');
+        const registerSpinner = document.getElementById('register-spinner');
+        const registerStatus = document.getElementById('register-status');
+        
+        const checkinButton = document.getElementById('checkin-button');
+        const checkinText = document.getElementById('checkin-text');
+        const checkinSpinner = document.getElementById('checkin-spinner');
+        const checkinStatus = document.getElementById('checkin-status');
+        
+        let localStream = null;
+
+        // --- Webcam Setup ---
+        async function setupWebcam() {
+            try {
+                // Check if stream already exists
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                }
+                
+                // Request a higher quality video stream
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: "user"  // Use front camera
+                    }, 
+                    audio: false 
+                });
+                localStream = stream; // Store the stream
+                
+                // Set the stream for both video elements
+                if (videoRegister) videoRegister.srcObject = stream;
+                if (videoCheckin) videoCheckin.srcObject = stream;
+
+                // Ensure videos play (some browsers require this)
+                videoRegister.play();
+                videoCheckin.play();
+
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                registerStatus.textContent = "Error: Could not access webcam.";
+                checkinStatus.textContent = "Error: Could not access webcam.";
+            }
+        }
+
+        // --- Helper Function: Capture Frame ---
+        function captureFrame(videoElement) {
+            // Check if video is playing and has dimensions
+            if (videoElement.readyState < 3) { // 3 = HAVE_FUTURE_DATA, 4 = HAVE_ENOUGH_DATA
+                console.warn("Video not ready, retrying...");
+                // You might want to wait a bit and retry
+                return null;
+            }
+
+            const context = canvas.getContext('2d');
+            
+            // Set to a good size for face detection (not too small)
+            canvas.width = Math.max(640, videoElement.videoWidth);
+            canvas.height = Math.max(480, videoElement.videoHeight);
+            
+            // Draw the video frame with best quality
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = 'high';
+            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            
+            // Use higher quality JPEG
+            return canvas.toDataURL('image/jpeg', 1.0);
+        }
+
+        // --- Event Listener: Register ---
+        registerButton.addEventListener('click', async () => {
+            const name = nameInput.value;
+            if (!name) {
+                showStatus(registerStatus, 'Please enter a name.', 'error');
+                return;
+            }
+
+            const imageB64 = captureFrame(videoRegister);
+            if (!imageB64) {
+                 showStatus(registerStatus, 'Webcam not ready. Please wait.', 'error');
+                 return;
+            }
+
+            setLoading(registerButton, registerText, registerSpinner, true);
+            showStatus(registerStatus, 'Analyzing and registering...', 'pending');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, image: imageB64 })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    showStatus(registerStatus, `Success: ${result.message}`, 'success');
+                    nameInput.value = ''; // Clear input
+                } else {
+                    showStatus(registerStatus, `Error: ${result.message}`, 'error');
+                }
+            } catch (err) {
+                console.error('Registration failed:', err);
+                showStatus(registerStatus, 'Error: Could not connect to server.', 'error');
+            } finally {
+                setLoading(registerButton, registerText, registerSpinner, false);
+            }
+        });
+
+        // --- Event Listener: Check-In ---
+        checkinButton.addEventListener('click', async () => {
+            // ** HACKATHON "WOW" FEATURE: Liveliness Check **
+            // For a real hackathon, you'd integrate face-api.js here to detect a blink.
+            // For this prototype, we'll just show the prompt for effect and then proceed.
+            const livelinessPrompt = document.getElementById('liveliness-prompt');
+            livelinessPrompt.classList.remove('hidden');
+            
+            showStatus(checkinStatus, 'Please blink...', 'pending');
+            
+            // Simulate a 1.5 second "blink detection" period
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            livelinessPrompt.classList.add('hidden');
+            setLoading(checkinButton, checkinText, checkinSpinner, true);
+            showStatus(checkinStatus, 'Verifying face...', 'pending');
+
+            const imageB64 = captureFrame(videoCheckin);
+            if (!imageB64) {
+                 showStatus(checkinStatus, 'Webcam not ready. Please wait.', 'error');
+                 setLoading(checkinButton, checkinText, checkinSpinner, false);
+                 return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/check-in`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageB64 })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    showStatus(checkinStatus, `Welcome, ${result.name}!`, 'success');
+                } else {
+                    showStatus(checkinStatus, `Error: ${result.message}`, 'error');
+                }
+            } catch (err) {
+                console.error('Check-in failed:', err);
+                showStatus(checkinStatus, 'Error: Could not connect to server.', 'error');
+            } finally {
+                setLoading(checkinButton, checkinText, checkinSpinner, false);
+            }
+        });
+
+        // --- UI Helper Functions ---
+        function setLoading(button, text, spinner, isLoading) {
+            if (isLoading) {
+                button.disabled = true;
+                text.classList.add('hidden');
+                spinner.classList.remove('hidden');
+            } else {
+                button.disabled = false;
+                text.classList.remove('hidden');
+                spinner.classList.add('hidden');
+            }
+        }
+        
+        function showStatus(element, message, type) {
+            element.textContent = message;
+            element.classList.remove('text-green-400', 'text-red-400', 'text-gray-400');
+            if (type === 'success') {
+                element.classList.add('text-green-400');
+            } else if (type === 'error') {
+                element.classList.add('text-red-400');
+            } else {
+                element.classList.add('text-gray-400');
+            }
+            
+            // Clear status after 3 seconds
+            setTimeout(() => {
+                if (element.textContent === message) {
+                    element.textContent = '';
+                }
+            }, 3000);
+        }
+
+        // --- Initialize ---
+        setupWebcam();
+    </script>
+</body>
+</html>
