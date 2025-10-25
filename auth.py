@@ -48,6 +48,10 @@ def auth_required(f):
     """Decorator to require authentication for routes"""
     @wraps(f)
     def decorated(*args, **kwargs):
+        if request.method == 'OPTIONS':
+            # Allow preflight requests
+            return f(*args, **kwargs)
+            
         auth_header = request.headers.get('Authorization')
         
         if not auth_header or not auth_header.startswith('Bearer '):

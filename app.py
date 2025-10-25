@@ -16,7 +16,15 @@ app = Flask(__name__,
     template_folder='templates',    # Add template folder
     static_folder='static'         # Add static folder
 )
-CORS(app)  # Allow all origins for a hackathon
+
+# Configure CORS
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:5000"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # JWT Configuration
 JWT_SECRET = 'your-secret-key'  # Change this in production
@@ -170,23 +178,21 @@ def login():
 @auth_required
 @faculty_required
 def faculty_dashboard():
-    return render_template('faculty_dashboard.html')
-
-@app.route('/faculty/index')
-@auth_required
-@faculty_required
-def faculty_index():
-    return render_template('index.html')
-
-@app.route('/faculty/index_new')
-@auth_required
-@faculty_required
-def faculty_index_new():
-    return render_template('index_new.html')
+    return render_template('faculty/faculty_dashboard.html')
 
 @app.route('/attendance')
 @auth_required
-def attendance_page():
+def attendance_index():
+    return render_template('index.html')
+
+@app.route('/attendance/new')
+@auth_required
+def attendance_index_new():
+    return render_template('index_new.html')
+
+@app.route('/attendance/list')
+@auth_required
+def attendance_list():
     return render_template('attendance.html')
 
 @app.route('/static/<path:filename>')
@@ -200,16 +206,18 @@ def api_login():
     password = data.get('password')
 
     if email in users and users[email]['password'] == password:
-        # Generate JWT token
+        # Generate JWT token with role information
         token = jwt.encode({
             'email': email,
-            'role': users[email]['role']
+            'role': users[email]['role'],
+            'name': users[email]['name']
         }, JWT_SECRET, algorithm='HS256')
         
         return jsonify({
             'status': 'success',
             'token': token,
-            'role': users[email]['role']
+            'role': users[email]['role'],
+            'redirect': '/faculty' if users[email]['role'] == 'faculty' else '/attendance'
         })
     
     return jsonify({

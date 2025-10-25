@@ -60,13 +60,47 @@
     <script src="/static/js/attendance.js"></script>
     <script>
         // Check authentication on page load
-        if (!localStorage.getItem('token')) {
-            window.location.href = '/login';
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            const userRole = localStorage.getItem('user_role');
+
+            if (!token || !userRole) {
+                window.location.href = '/login';
+                return;
+            }
+
+            if (userRole !== 'faculty') {
+                window.location.href = '/attendance';
+                return;
+            }
+
+            try {
+                // Verify token is valid
+                const response = await fetch('/api/courses', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid token');
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user_role');
+                window.location.href = '/login';
+            }
+        }
+
+        // Run authentication check
+        checkAuth();
         }
 
         // Logout functionality
         document.getElementById('logoutBtn').addEventListener('click', () => {
             localStorage.removeItem('token');
+            localStorage.removeItem('user_role');
             window.location.href = '/login';
         });
 
